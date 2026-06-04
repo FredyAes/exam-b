@@ -419,6 +419,19 @@
     <div class="progress-label" id="progress-label">Pregunta 0 de 20 respondidas</div>
     <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar" style="width:0%"></div></div>
 
+    <div id="exam-timer" style="
+      background:#0d3b2e;
+      color:white;
+      padding:14px;
+      border-radius:12px;
+      text-align:center;
+      font-size:18px;
+      font-weight:700;
+      margin-bottom:20px;
+    ">
+    ⏳ Tiempo restante: 60:00
+    </div>
+
     <div class="section-badge">📋 Sección 1 — Datos del alumno</div>
 
     <!-- Número de lista -->
@@ -508,8 +521,8 @@ const firebaseConfig = {
 //  Formato: new Date(año, mes-1, día, hora, minuto)
 //  ⚠️  mes-1: enero=0, junio=5, julio=6
 // ═══════════════════════════════════════════════════════════════════
-const EXAM_START = new Date(2025, 0, 1, 0, 0, 0);
-const EXAM_END   = new Date(2030, 11, 31, 23, 59, 59);
+const EXAM_START = new Date(2026, 5, 5, 16, 0, 0); // 5 junio 2026 16:00
+const EXAM_END   = new Date(2026, 5, 5, 17, 0, 0); // 5 junio 2026 17:00
 
 // ── Inicializar Firebase ──────────────────────────────────────────
 firebase.initializeApp(firebaseConfig);
@@ -756,15 +769,12 @@ function showThanks() {
   submitted = true;
   examFinished = true;
 
-  if (timerInterval) {
-    clearInterval(timerInterval);
-  }
-
-  document.querySelectorAll('.screen').forEach(s =>
-    s.classList.remove('active')
+  document.querySelectorAll('.screen').forEach(screen =>
+    screen.classList.remove('active')
   );
 
-  document.getElementById('screen-thanks')
+  document
+    .getElementById('screen-thanks')
     .classList.add('active');
 
   launchConfetti();
@@ -776,8 +786,21 @@ function showThanks() {
 }
 
 function closePage() {
-  window.close();
-  document.body.innerHTML = '<div style="text-align:center;padding:60px;font-family:sans-serif;color:#0d3b2e"><h2>✅ Puedes cerrar esta pestaña.</h2></div>';
+
+  try {
+    window.close();
+  } catch (e) {}
+
+  document.body.innerHTML = `
+    <div style="
+      text-align:center;
+      padding:60px;
+      font-family:sans-serif;
+      color:#0d3b2e;
+    ">
+      <h2>✅ Puedes cerrar esta pestaña.</h2>
+    </div>
+  `;
 }
 
 // ── Confetti ──────────────────────────────────────────────────────
@@ -849,14 +872,77 @@ function showScreen(name) {
   document.getElementById(`screen-${name}`).classList.add('active');
 }
 
+function updateExamTimer() {
+
+  const timer =
+    document.getElementById('exam-timer');
+
+  if (!timer) return;
+
+  const now = new Date();
+
+  const remaining =
+    Math.max(0, EXAM_END - now);
+
+  const totalSeconds =
+    Math.floor(remaining / 1000);
+
+  const minutes =
+    Math.floor(totalSeconds / 60);
+
+  const seconds =
+    totalSeconds % 60;
+
+  timer.textContent =
+    `⏳ Tiempo restante: ${
+      String(minutes).padStart(2, '0')
+    }:${
+      String(seconds).padStart(2, '0')
+    }`;
+
+  // Colores según tiempo restante
+  if (minutes < 10) {
+
+    timer.style.background = '#e74c3c';
+
+  } else if (minutes < 20) {
+
+    timer.style.background = '#f39c12';
+
+  } else {
+
+    timer.style.background = '#0d3b2e';
+
+  }
+
+  // Tiempo agotado
+  if (
+    remaining <= 0 &&
+    !submitted &&
+    !examFinished
+  ) {
+
+    examFinished = true;
+
+    alert(
+      'El tiempo para responder el examen ha terminado.'
+    );
+
+    showScreen('closed');
+  }
+}
+
 function tick() {
 
+  // Si ya terminó y se mostró agradecimiento,
+  // no seguir evaluando horarios.
   if (examFinished) {
     return;
   }
 
   const state = checkTime();
 
+  // ANTES DE INICIAR
   if (state === 'wait') {
 
     updateCountdown();
@@ -864,15 +950,20 @@ function tick() {
     return;
   }
 
+  // EXAMEN CERRADO
   if (state === 'closed') {
 
     showScreen('closed');
     return;
   }
 
+  // EXAMEN ABIERTO
   const wasOpen =
     document.getElementById('screen-exam')
       .classList.contains('active');
+
+  // Actualizar reloj del examen SIEMPRE
+  updateExamTimer();
 
   if (!wasOpen) {
 
@@ -903,7 +994,7 @@ function tick() {
           return;
         }
 
-      } catch(e) {
+      } catch (e) {
         console.error(e);
       }
     }

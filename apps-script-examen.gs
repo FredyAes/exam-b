@@ -1,16 +1,14 @@
 // ════════════════════════════════════════════════════════════════════
 //  📊  APPS SCRIPT — EXAMEN DE BIOLOGÍA
-//  Instrucciones de instalación al final de este archivo.
+//  Recibe datos vía GET (parámetros en URL) desde GitHub Pages.
+//  Esto evita problemas de CORS que ocurren con POST + no-cors.
 // ════════════════════════════════════════════════════════════════════
 
 // ── CONFIGURACIÓN ────────────────────────────────────────────────────
-// Pega aquí el ID de tu Google Sheet (está en la URL entre /d/ y /edit)
-// Ejemplo: https://docs.google.com/spreadsheets/d/ESTE_ES_EL_ID/edit
-const SHEET_ID   = 'PEGA_AQUI_EL_ID_DE_TU_GOOGLE_SHEET';
-const SHEET_NAME = 'Respuestas';   // Nombre de la hoja (pestaña)
+const SHEET_ID   = '10pWnT5tPmRNjzdSgXLsUcLE2nb__CZWDNCx8rq0sM3k';
+const SHEET_NAME = 'Respuestas';
 // ─────────────────────────────────────────────────────────────────────
 
-// Encabezados de la hoja (se crean automáticamente si la hoja está vacía)
 const HEADERS = [
   'Fecha y hora de registro',
   'Nombre',
@@ -25,206 +23,151 @@ const HEADERS = [
   'Detalle de respuestas'
 ];
 
-// ── RECIBIR DATOS (POST) ─────────────────────────────────────────────
-function doPost(e) {
+// ── RECIBIR DATOS (GET con parámetros en URL) ────────────────────────
+function doGet(e) {
   try {
-    const raw  = e.postData ? e.postData.contents : '{}';
-    const data = JSON.parse(raw);
+    const p = e.parameter;
+
+    // Si no vienen parámetros del examen, devolver mensaje simple
+    if (!p || !p.nombre) {
+      return ContentService.createTextOutput('Servicio activo.');
+    }
 
     const ss    = SpreadsheetApp.openById(SHEET_ID);
     let   sheet = ss.getSheetByName(SHEET_NAME);
 
-    // Crear la hoja si no existe
     if (!sheet) {
       sheet = ss.insertSheet(SHEET_NAME);
     }
 
-    // Agregar encabezados si la hoja está vacía
+    // Crear encabezados si la hoja está vacía
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(HEADERS);
-      // Estilo de encabezados
-      const headerRange = sheet.getRange(1, 1, 1, HEADERS.length);
-      headerRange.setBackground('#0d3b2e');
-      headerRange.setFontColor('#ffffff');
-      headerRange.setFontWeight('bold');
-      headerRange.setHorizontalAlignment('center');
+      const hr = sheet.getRange(1, 1, 1, HEADERS.length);
+      hr.setBackground('#0d3b2e');
+      hr.setFontColor('#ffffff');
+      hr.setFontWeight('bold');
+      hr.setHorizontalAlignment('center');
       sheet.setFrozenRows(1);
     }
 
-    // ── VALIDACIONES DEL LADO DEL SERVIDOR ──────────────────────────
+    // ── VALIDACIONES ─────────────────────────────────────────────────
 
-    // 1. Verificar que el número de lista + grupo no se hayan registrado antes
-    const listaCol = 3; // columna "No. de Lista"
-    const grupoCol = 4; // columna "Grupo"
-    const lastRow  = sheet.getLastRow();
-    if (lastRow > 1) {
-      const listaVals = sheet.getRange(2, listaCol, lastRow - 1, 1).getValues().flat().map(Number);
-      const grupoVals = sheet.getRange(2, grupoCol, lastRow - 1, 1).getValues().flat().map(String);
-      for (let i = 0; i < listaVals.length; i++) {
-        if (listaVals[i] === Number(data.numeroDeLista) && grupoVals[i] === String(data.grupo)) {
-          return jsonResponse({ ok: false, error: 'DUPLICADO_LISTA',
-            mensaje: `El alumno con lista #${data.numeroDeLista} del grupo ${data.grupo} ya tiene una respuesta registrada.` });
-        }
+    const nombre = String(p.nombre || '').trim();
+    const lista  = Number(p.numeroDeLista);
+    const grupo  = String(p.grupo  || '').trim();
+
+    if (!/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/.test(nombre)) {
+      return jsonResponse({ ok: false, mensaje: 'Nombre inválido.' });
+    }
+    if (isNaN(lista) || lista < 1 || lista > 50) {
+      return jsonResponse({ ok: false, mensaje: 'Número de lista inválido.' });
+    }
+    if (!grupo) {
+      return jsonResponse({ ok: false, mensaje: 'Grupo inválido.' });
+    }
+
+    // ── EVITAR DUPLICADOS (lista + grupo) ────────────────────────────
+    const allData = sheet.getDataRange().getValues();
+    for (let i = 1; i < allData.length; i++) {
+      if (Number(allData[i][2]) === lista && String(allData[i][3]) === grupo) {
+        return jsonResponse({
+          ok: false,
+          mensaje: `Ya existe un registro para lista #${lista} grupo ${grupo}.`
+        });
       }
     }
 
-    // 2. Validar que venga nombre (solo letras/espacios)
-    if (!data.nombre || !/^[A-ZÁÉÍÓÚÑ\s]{3,}$/i.test(data.nombre)) {
-      return jsonResponse({ ok: false, error: 'NOMBRE_INVALIDO',
-        mensaje: 'El nombre contiene caracteres no permitidos.' });
-    }
-
-    // 3. Validar número de lista (1-50)
-    const listaNum = Number(data.numeroDeLista);
-    if (!data.numeroDeLista || isNaN(listaNum) || listaNum < 1 || listaNum > 50) {
-      return jsonResponse({ ok: false, error: 'LISTA_INVALIDA',
-        mensaje: 'El número de lista no es válido (debe ser entre 1 y 50).' });
-    }
-
-    // 4. Validar grupo (1-9)
-    if (!data.grupo || !['1','2','3','4','5','6','7','8','9'].includes(String(data.grupo))) {
-      return jsonResponse({ ok: false, error: 'GRUPO_INVALIDO',
-        mensaje: 'El grupo no es válido.' });
-    }
-
-    // 5. Validar rango de calificación
-    const cal = Number(data.calificacion);
-    if (isNaN(cal) || cal < 0 || cal > 100) {
-      return jsonResponse({ ok: false, error: 'CALIFICACION_INVALIDA',
-        mensaje: 'La calificación recibida no es válida.' });
-    }
-
-    // ── GUARDAR FILA ────────────────────────────────────────────────
-    const now = Utilities.formatDate(
+    // ── GUARDAR ──────────────────────────────────────────────────────
+    const ahora = Utilities.formatDate(
       new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'
     );
+    const cal = Number(p.calificacion || 0);
 
-    const row = [
-      now,
-      data.nombre           || '',
-      listaNum,
-      data.grupo            || '',
-      data.horaInicio       || '',
-      data.horaTermino      || '',
-      Number(data.duracionSegundos) || 0,
+    sheet.appendRow([
+      ahora,
+      nombre,
+      lista,
+      grupo,
+      p.horaInicio        || '',
+      p.horaTermino       || '',
+      Number(p.duracionSegundos || 0),
       cal,
-      Number(data.correctas)   || 0,
-      Number(data.incorrectas) || 0,
-      data.respuestas       || ''
-    ];
+      Number(p.correctas  || 0),
+      Number(p.incorrectas|| 0),
+      p.respuestas        || ''
+    ]);
 
-    sheet.appendRow(row);
-
-    // ── DAR FORMATO A LA FILA RECIÉN AÑADIDA ────────────────────────
-    const newRow = sheet.getLastRow();
-
-    // Colorear según calificación
-    const calCell = sheet.getRange(newRow, 8); // columna Calificación
-    if (cal >= 70)      calCell.setBackground('#d6f5e8').setFontColor('#0d3b2e');
+    // ── FORMATO DE CALIFICACIÓN ──────────────────────────────────────
+    const newRow  = sheet.getLastRow();
+    const calCell = sheet.getRange(newRow, 8);
+    if      (cal >= 70) calCell.setBackground('#d6f5e8').setFontColor('#0d3b2e');
     else if (cal >= 50) calCell.setBackground('#fff3cd').setFontColor('#856404');
     else                calCell.setBackground('#fde8e8').setFontColor('#8b0000');
-
     calCell.setFontWeight('bold');
 
-    // Ajustar ancho de columnas solo una vez (cuando hay 2 filas: encabezado + primera respuesta)
+    // Ajustar anchos solo en la primera fila de datos
     if (newRow === 2) {
-      const widths = [160, 200, 220, 60, 100, 110, 100, 100, 100, 110, 250];
-      widths.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
+      [170, 250, 90, 80, 120, 120, 100, 110, 120, 130, 280]
+        .forEach((w, i) => sheet.setColumnWidth(i + 1, w));
     }
 
-    return jsonResponse({ ok: true, mensaje: 'Respuesta registrada correctamente.' });
+    return jsonResponse({ ok: true, mensaje: 'Registro guardado correctamente.' });
 
   } catch (err) {
-    return jsonResponse({ ok: false, error: 'ERROR_SERVIDOR', mensaje: err.toString() });
+    return jsonResponse({ ok: false, mensaje: err.toString() });
   }
 }
 
-// ── RESPUESTA JSON CON CORS ──────────────────────────────────────────
+// ── Respuesta JSON con cabecera CORS ────────────────────────────────
 function jsonResponse(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ── PRUEBA MANUAL (ejecutar desde el editor) ────────────────────────
-function testDoPost() {
+// ── PRUEBA MANUAL (ejecutar desde el editor de Apps Script) ─────────
+function testDoGet() {
   const mockEvent = {
-    postData: {
-      contents: JSON.stringify({
-        nombre:           'JUAN PÉREZ GARCÍA',
-        numeroDeLista:    12,
-        grupo:            '3',
-        horaInicio:       '11:00:00',
-        horaTermino:      '11:22:45',
-        duracionSegundos: 1365,
-        calificacion:     85,
-        correctas:        17,
-        incorrectas:      3,
-        respuestas:       '0,0,0,0,1,1,1,1,0,0,0,1,0,1,0,1,0,1,1,1'
-      })
+    parameter: {
+      nombre:           'JUAN PEREZ GARCIA',
+      numeroDeLista:    '12',
+      grupo:            '3',
+      horaInicio:       '11:00:00',
+      horaTermino:      '11:22:45',
+      duracionSegundos: '1365',
+      calificacion:     '85',
+      correctas:        '17',
+      incorrectas:      '3',
+      respuestas:       '0,0,0,0,1,1,1,1,0,0,0,1,0,1,0,1,0,1,1,1'
     }
   };
-  const result = doPost(mockEvent);
-  Logger.log(result.getContent());
+  Logger.log(doGet(mockEvent).getContent());
 }
 
 
 // ════════════════════════════════════════════════════════════════════
 //
-//  📋  INSTRUCCIONES DE INSTALACIÓN PASO A PASO
-//  ─────────────────────────────────────────────
+//  📋  POR QUÉ SE CAMBIÓ DE doPost A doGet
+//  ─────────────────────────────────────────
+//  Cuando el HTML está en GitHub Pages (dominio distinto a Google),
+//  el navegador bloquea POST con Content-Type: application/json
+//  debido a CORS. Con mode:'no-cors' el body llega vacío a Apps Script.
+//  La solución más confiable es enviar los datos como parámetros GET
+//  en la URL (?nombre=...&grupo=...) — los parámetros GET sí pasan
+//  con no-cors sin ningún problema.
 //
-//  1. CREAR LA HOJA DE CÁLCULO
-//     • Ve a https://sheets.google.com y crea una nueva hoja.
-//     • Copia el ID de la URL (la cadena entre /d/ y /edit).
-//     • Pégalo en la variable SHEET_ID al inicio de este script.
+//  PASOS PARA ACTUALIZAR TU IMPLEMENTACIÓN
+//  ─────────────────────────────────────────
+//  1. Reemplaza TODO el código en tu editor de Apps Script con este.
+//  2. Guarda (Ctrl+S).
+//  3. Ve a Implementar → Administrar implementaciones.
+//  4. Haz clic en el lápiz ✏️ de tu implementación actual.
+//  5. En "Versión" selecciona "Nueva versión".
+//  6. Clic en "Implementar".
+//  7. La URL /exec NO cambia — no necesitas actualizar el HTML.
+//  8. Prueba ejecutando testDoGet() desde el editor.
 //
-//  2. ABRIR EL EDITOR DE APPS SCRIPT
-//     • En la hoja de cálculo ve a: Extensiones → Apps Script
-//     • Borra el código que aparece por defecto.
-//     • Pega TODO el contenido de este archivo.
-//
-//  3. GUARDAR
-//     • Ctrl+S (o el ícono de guardar).
-//     • Ponle un nombre al proyecto, ej: "Examen Biología".
-//
-//  4. PROBAR LOCALMENTE (opcional pero recomendado)
-//     • Selecciona la función "testDoPost" en el menú desplegable.
-//     • Haz clic en "Ejecutar".
-//     • Acepta los permisos que pida (acceso a Sheets).
-//     • Revisa los registros (Ver → Registros) y verifica que
-//       aparezca {"ok":true,...}.
-//     • Abre tu hoja y confirma que se creó la fila de prueba.
-//
-//  5. PUBLICAR COMO WEB APP
-//     • Clic en "Implementar" → "Nueva implementación".
-//     • Tipo: "Aplicación web".
-//     • Ejecutar como: "Yo (tu correo)".
-//     • Quién tiene acceso: "Cualquier usuario" (Anyone).
-//     • Haz clic en "Implementar".
-//     • COPIA la URL que aparece (termina en /exec).
-//
-//  6. PEGAR LA URL EN EL EXAMEN HTML
-//     • Abre el archivo examen-biologia.html.
-//     • Busca la línea:
-//         const SHEET_URL = 'https://script.google.com/macros/s/TU_APPS_SCRIPT_ID/exec';
-//     • Reemplaza toda la URL por la que copiaste en el paso 5.
-//
-//  7. SUBIR A GITHUB PAGES
-//     • Crea un repositorio en GitHub (puede ser privado o público).
-//     • Sube el archivo examen-biologia.html como "index.html".
-//     • Ve a Settings → Pages → Branch: main → /root → Save.
-//     • Tu examen estará disponible en:
-//         https://TU_USUARIO.github.io/NOMBRE_REPOSITORIO/
-//
-//  ⚠️  NOTAS IMPORTANTES
-//     • Cada vez que modifiques el Apps Script y quieras que los
-//       cambios surtan efecto, debes crear una NUEVA implementación
-//       (Implementar → Administrar implementaciones → editar ✏️
-//       → Versión: "Nueva versión" → Implementar).
-//     • La URL /exec NO cambia entre versiones, solo el código interno.
-//     • Si ves errores CORS en el navegador, es normal con "no-cors";
-//       los datos llegan igual, solo no puedes leer la respuesta JSON
-//       desde el navegador por seguridad de Google.
+//  IMPORTANTE: "Quién tiene acceso" debe ser "Cualquier usuario".
 //
 // ════════════════════════════════════════════════════════════════════

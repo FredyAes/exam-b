@@ -777,11 +777,12 @@ async function submitExam() {
   localStorage.setItem('examSubmitted_bio2p', JSON.stringify({ lista: listaNum, grupo, nombre, ts: Date.now() }));
 
   try {
-    await fetch(SHEET_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    // Apps Script con no-cors requiere GET + parámetros en URL
+    // (POST con no-cors no envía el body correctamente desde el navegador)
+    const params = new URLSearchParams(Object.entries(payload).map(([k, v]) => [k, String(v)]));
+    await fetch(`${SHEET_URL}?${params.toString()}`, {
+      method: 'GET',
+      mode: 'no-cors'
     });
   } catch (e) {
     console.warn('Error al enviar a Google Sheets:', e);

@@ -489,8 +489,6 @@
 //  Cómo obtenerlas: Firebase Console → Tu proyecto →
 //  Configuración del proyecto (⚙️) → Tus apps → Config
 // ═══════════════════════════════════════════════════════════════════
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAW7PTWRDlv-5v8Vq465CDhLynh8AM7EdM",
@@ -504,18 +502,14 @@ const firebaseConfig = {
 };
 // ═══════════════════════════════════════════════════════════════════
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 
 // ═══════════════════════════════════════════════════════════════════
 //  ⚙️  PERIODO DEL EXAMEN
 //  Formato: new Date(año, mes-1, día, hora, minuto)
 //  ⚠️  mes-1: enero=0, junio=5, julio=6
 // ═══════════════════════════════════════════════════════════════════
-const EXAM_START = new Date(2026, 5,  2,  0,  0,  0);  // 2 Jun 2026 00:00
-const EXAM_END   = new Date(2026, 5, 30, 23, 59, 59);  // 30 Jun 2026 23:59
-// ═══════════════════════════════════════════════════════════════════
+const EXAM_START = new Date(2025, 0, 1, 0, 0, 0);
+const EXAM_END   = new Date(2030, 11, 31, 23, 59, 59);
 
 // ── Inicializar Firebase ──────────────────────────────────────────
 firebase.initializeApp(firebaseConfig);
@@ -569,6 +563,8 @@ const questions = [
 const answers = new Array(questions.length).fill(null);
 let startTime  = null;
 let submitted  = false;
+let examFinished = false;
+let timerInterval = null;
 
 // ── Generar preguntas ─────────────────────────────────────────────
 function buildQuestions() {
@@ -665,12 +661,18 @@ async function submitExam() {
   const endTime   = new Date();
   const duration  = Math.round((endTime - startTime) / 1000);
 
-  // Bloquear botón
-  submitted = true;
-  const btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  btn.classList.add('loading');
-  btn.childNodes[0].textContent = ' Enviando...';
+// Bloquear botón
+submitted = true;
+
+const btn = document.getElementById('submit-btn');
+
+btn.disabled = true;
+btn.classList.add('loading');
+
+btn.innerHTML = `
+  Enviando...
+  <span class="btn-spinner"></span>
+`;
 
   // Clave única: grupo_lista  (ej: "3_12") — evita duplicados en Firebase
   const claveAlumno = `G${grupo}_L${String(listaNum).padStart(2,'0')}`;
@@ -697,9 +699,14 @@ async function submitExam() {
     if (snapshot.exists()) {
       // Ya contestó — mostrar pantalla de cerrado personalizada
       submitted = false;
+
       btn.disabled = false;
       btn.classList.remove('loading');
-      btn.childNodes[0].textContent = 'Enviar examen';
+
+      btn.innerHTML = `
+        Enviar examen
+        <span class="btn-spinner"></span>
+      `;
 
       document.getElementById('screen-closed').querySelector('h2').textContent = '🚫 Ya contestaste este examen';
       document.getElementById('screen-closed').querySelector('p').textContent =
@@ -726,10 +733,27 @@ async function submitExam() {
 }
 
 function showThanks() {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-thanks').classList.add('active');
+
+  submitted = true;
+  examFinished = true;
+
+  if (timerInterval) {
+    clearInterval(timerInterval);
+  }
+
+  document.querySelectorAll('.screen').forEach(s =>
+    s.classList.remove('active')
+  );
+
+  document.getElementById('screen-thanks')
+    .classList.add('active');
+
   launchConfetti();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
 }
 
 function closePage() {
@@ -807,39 +831,81 @@ function showScreen(name) {
 }
 
 function tick() {
+
+  if (examFinished) {
+    return;
+  }
+
   const state = checkTime();
+
   if (state === 'wait') {
+
     updateCountdown();
     showScreen('wait');
-  } else if (state === 'closed') {
+    return;
+  }
+
+  if (state === 'closed') {
+
     showScreen('closed');
-  } else {
-    const wasOpen = document.getElementById('screen-exam').classList.contains('active');
-    if (!wasOpen) {
-      // Revisar localStorage primero (respaldo rápido)
-      const prev = localStorage.getItem('examSubmitted_bio2p');
-      if (prev) {
-        try {
-          const data = JSON.parse(prev);
-          if (data.lista) {
-            document.getElementById('screen-closed').querySelector('h2').textContent = '🚫 Ya contestaste este examen';
-            document.getElementById('screen-closed').querySelector('p').textContent =
-              `Registramos una respuesta del alumno ${data.nombre || ''} (lista #${data.lista}). No es posible contestar dos veces desde este dispositivo.`;
-            showScreen('closed');
-            return;
-          }
-        } catch(e) {}
+    return;
+  }
+
+  const wasOpen =
+    document.getElementById('screen-exam')
+      .classList.contains('active');
+
+  if (!wasOpen) {
+
+    const prev =
+      localStorage.getItem('examSubmitted_bio2p');
+
+    if (prev && !submitted) {
+
+      try {
+
+        const data = JSON.parse(prev);
+
+        if (data.lista) {
+
+          document
+            .getElementById('screen-closed')
+            .querySelector('h2')
+            .textContent =
+            '🚫 Ya contestaste este examen';
+
+          document
+            .getElementById('screen-closed')
+            .querySelector('p')
+            .textContent =
+            `Registramos una respuesta del alumno ${data.nombre || ''} (lista #${data.lista}). No es posible contestar dos veces desde este dispositivo.`;
+
+          showScreen('closed');
+          return;
+        }
+
+      } catch(e) {
+        console.error(e);
       }
-      showScreen('exam');
-      if (!startTime) startTime = new Date();
+    }
+
+    showScreen('exam');
+
+    if (!startTime) {
+      startTime = new Date();
     }
   }
 }
 
 // ── Init ──────────────────────────────────────────────────────────
 buildQuestions();
+
 tick();
-setInterval(tick, 1000);
+
+timerInterval = setInterval(
+  tick,
+  1000
+);
 </script>
 </body>
 </html>

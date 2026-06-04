@@ -114,7 +114,7 @@
     color: var(--accent);
   }
   .cd-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,.6); margin-top: 4px; }
-  .wait-window { font-size: 13px; color: var(--text-muted); margin-top: 20px; }
+  .wait-window { font-size: 13px; color: var(--text-muted); margin-top: 20px; line-height: 1.7; }
   .wait-window strong { color: var(--green-mid); }
 
   /* ───── CLOSED SCREEN ───── */
@@ -123,7 +123,7 @@
   }
   .closed-card .icon { font-size: 60px; margin-bottom: 16px; }
   .closed-card h2 { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--danger); margin-bottom: 10px; }
-  .closed-card p { color: var(--text-muted); font-size: 15px; }
+  .closed-card p { color: var(--text-muted); font-size: 15px; line-height: 1.7; }
 
   /* ───── EXAM SCREEN ───── */
   .exam-wrap {
@@ -132,7 +132,6 @@
     padding: 20px 16px 60px;
   }
 
-  /* progress bar */
   .progress-bar-wrap {
     background: var(--border);
     border-radius: 99px;
@@ -153,7 +152,6 @@
     margin-bottom: 6px;
   }
 
-  /* section badge */
   .section-badge {
     display: inline-flex;
     align-items: center;
@@ -168,7 +166,6 @@
     margin-bottom: 20px;
   }
 
-  /* CARD */
   .card {
     background: var(--card);
     border-radius: var(--radius);
@@ -198,7 +195,6 @@
   }
   .required-star { color: var(--danger); margin-left: 2px; }
 
-  /* text input */
   .text-field {
     width: 100%;
     border: 2px solid var(--border);
@@ -224,7 +220,6 @@
     padding-right: 40px;
   }
 
-  /* radio options */
   .options-list { display: flex; flex-direction: column; gap: 10px; }
   .option-item {
     display: flex;
@@ -238,17 +233,13 @@
     user-select: none;
   }
   .option-item:hover { border-color: var(--green-light); background: var(--green-pale); }
-  .option-item.selected {
-    border-color: var(--green-light);
-    background: var(--green-pale);
-  }
+  .option-item.selected { border-color: var(--green-light); background: var(--green-pale); }
   .option-item input[type="radio"] {
     appearance: none;
     width: 20px; height: 20px;
     border: 2px solid var(--border);
     border-radius: 50%;
     flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
     transition: border-color .18s, background .18s;
     position: relative;
   }
@@ -268,7 +259,6 @@
   }
   .option-text { font-size: 16px; line-height: 1.4; }
 
-  /* inline error */
   .inline-error {
     display: none;
     align-items: center;
@@ -284,7 +274,6 @@
   }
   .inline-error.visible { display: flex; }
 
-  /* submit button */
   .submit-btn {
     display: block;
     width: 100%;
@@ -317,7 +306,6 @@
 
   @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
 
-  /* instructions box */
   .instructions-box {
     background: linear-gradient(135deg, var(--green-dark), var(--green-mid));
     color: #fff;
@@ -378,9 +366,7 @@
     border-radius: 2px;
     animation: fall linear forwards;
   }
-  @keyframes fall {
-    to { transform: translateY(110vh) rotate(720deg); opacity: 0; }
-  }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
 
   /* ───── RESPONSIVE ───── */
   @media (max-width: 480px) {
@@ -430,10 +416,9 @@
 <!-- ══════════════ SCREEN: EXAMEN ══════════════ -->
 <div id="screen-exam" class="screen">
   <div class="exam-wrap">
-    <div class="progress-label" id="progress-label">Pregunta 0 de 20</div>
+    <div class="progress-label" id="progress-label">Pregunta 0 de 20 respondidas</div>
     <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar" style="width:0%"></div></div>
 
-    <!-- SECCIÓN 1: Datos -->
     <div class="section-badge">📋 Sección 1 — Datos del alumno</div>
 
     <!-- Número de lista -->
@@ -465,7 +450,7 @@
       <div class="inline-error" id="err-nombre">⚠ Solo letras y espacios. Mínimo 3 caracteres.</div>
     </div>
 
-    <!-- SECCIÓN 2: Preguntas -->
+    <!-- SECCIÓN 2 -->
     <div class="section-badge" style="margin-top:8px">🔬 Sección 2 — Preguntas de Biología</div>
     <div class="instructions-box">
       <h3>📝 Instrucciones</h3>
@@ -494,150 +479,98 @@
   <div class="confetti-wrap" id="confetti-wrap"></div>
 </div>
 
+<!-- Firebase SDK (versión CDN compatible, sin módulos ES) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 <script>
-// ═══════════════════════════════════════════════════════
-//  ⚙️  CONFIGURACIÓN — MODIFICA AQUÍ EL PERIODO DEL EXAMEN
-//  Formato: new Date(año, mes-1, día, hora, minuto, segundo)
-//  ⚠️  mes-1: enero=0, febrero=1 ... junio=5, julio=6
-// ═══════════════════════════════════════════════════════
-const EXAM_START = new Date(2026, 5,  2,  0,  0,  0);  // 2 Jun 2026 – 00:00 hrs
-const EXAM_END   = new Date(2026, 5, 30, 23, 59, 59);  // 30 Jun 2026 – 23:59 hrs
-//  (Nota: junio solo tiene 30 días; se ajustó de 31 a 30)
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+//  ⚙️  CONFIGURACIÓN FIREBASE — pega aquí tus credenciales
+//  Cómo obtenerlas: Firebase Console → Tu proyecto →
+//  Configuración del proyecto (⚙️) → Tus apps → Config
+// ═══════════════════════════════════════════════════════════════════
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
 
-// Google Sheets (Apps Script Web App URL) — reemplaza con tu URL real
-const SHEET_URL = 'https://script.google.com/macros/s/AKfycbxHWcMzzpluj6fklnnJzVvW2JIdSXzpud4kaF6cD8PVOzDjWVN7zjo-2n_UnRIYOnevAw/exec';
+const firebaseConfig = {
+  apiKey: "AIzaSyAW7PTWRDlv-5v8Vq465CDhLynh8AM7EdM",
+  authDomain: "examen-7bd79.firebaseapp.com",
+  databaseURL: "https://examen-7bd79-default-rtdb.firebaseio.com",
+  projectId: "examen-7bd79",
+  storageBucket: "examen-7bd79.firebasestorage.app",
+  messagingSenderId: "575195815862",
+  appId: "1:575195815862:web:f8e2d8c59cb9b87278eb17",
+  measurementId: "G-XECRZDS0YT"
+};
+// ═══════════════════════════════════════════════════════════════════
 
-// ─── PREGUNTAS ───
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+// ═══════════════════════════════════════════════════════════════════
+//  ⚙️  PERIODO DEL EXAMEN
+//  Formato: new Date(año, mes-1, día, hora, minuto)
+//  ⚠️  mes-1: enero=0, junio=5, julio=6
+// ═══════════════════════════════════════════════════════════════════
+const EXAM_START = new Date(2026, 5,  2,  0,  0,  0);  // 2 Jun 2026 00:00
+const EXAM_END   = new Date(2026, 5, 30, 23, 59, 59);  // 30 Jun 2026 23:59
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Inicializar Firebase ──────────────────────────────────────────
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ── PREGUNTAS ────────────────────────────────────────────────────
 const questions = [
-  {
-    id: 1,
-    text: "1.- ¿Son ejemplos de enfermedades no transmisibles?",
-    options: ["Diabetes", "Viruela", "Sarampión", "Rubeola"],
-    correct: 0
-  },
-  {
-    id: 2,
-    text: "2.- ¿Es un desequilibrio energético causado por el incremento de las calorías consumidas en contraste con las calorías gastadas?",
-    options: ["A) Obesidad", "Calorías", "Insulina", "Genético"],
-    correct: 0
-  },
-  {
-    id: 3,
-    text: "3.- ¿Es el porcentaje de obesidad en niños en edad escolar en México?",
-    options: ["35%", "45%", "25%", "75%"],
-    correct: 0
-  },
-  {
-    id: 4,
-    text: "4.- Son las hormonas que se generan por falta de sueño y que provocan que las personas tengan más apetito.",
-    options: ["Leptina y grelina", "Leptina y grenetina", "Cortisol", "Vaselina"],
-    correct: 0
-  },
-  {
-    id: 5,
-    text: "5.- El consumo en exceso de estos alimentos provoca enfermedades como la obesidad y diabetes.",
-    options: ["Gourmet", "Rápida y procesada", "Saludable", "Vegana"],
-    correct: 1
-  },
-  {
-    id: 6,
-    text: "6.- Es una unidad de medida del contenido de energía en una sustancia.",
-    options: ["Energía", "Caloría", "Mol", "Átomo"],
-    correct: 1
-  },
-  {
-    id: 7,
-    text: "7.- ¿Es la cantidad de calorías al día que recomienda la OMS para mantener un control alimenticio?",
-    options: ["1000", "2000", "3000", "8000"],
-    correct: 1
-  },
-  {
-    id: 8,
-    text: "8.- Es una enfermedad crónico degenerativa en donde la concentración de glucosa es alta.",
-    options: ["Cáncer", "Diabetes", "Hipertensión", "Covid"],
-    correct: 1
-  },
-  {
-    id: 9,
-    text: "9.- Es una hormona producida por el páncreas y sirve para la regulación del azúcar.",
-    options: ["Insulina", "Leptina", "Cortisol", "Grenetina"],
-    correct: 0
-  },
-  {
-    id: 10,
-    text: "10.- Es el tipo de diabetes cuando el páncreas deja de producir insulina o produce muy poca.",
-    options: ["Diabetes tipo 1", "Diabetes tipo 2", "Diabetes tipo 3", "Diabetes tipo 4"],
-    correct: 0
-  },
-  {
-    id: 11,
-    text: "11.- El sedentarismo es una de las causas de la obesidad.",
-    options: ["Verdadero", "Falso", "Ninguna", "Ni verdadero ni falso"],
-    correct: 0
-  },
-  {
-    id: 12,
-    text: "12.- El sobrepeso es sinónimo de obesidad.",
-    options: ["Verdadero", "Falso", "Ni verdadero ni falso", "Ninguna"],
-    correct: 1
-  },
-  {
-    id: 13,
-    text: "13.- La OMS recomienda 60 minutos diarios de actividad física.",
-    options: ["Verdadero", "Falso", "Ni verdadero ni falso", "Ninguna"],
-    correct: 0
-  },
-  {
-    id: 14,
-    text: "14.- Los alimentos ricos en calorías no producen obesidad.",
-    options: ["Verdadero", "Falso", "Ni verdadero ni falso", "Ninguna"],
-    correct: 1
-  },
-  {
-    id: 15,
-    text: "15.- Los hijos de personas con obesidad tienen mayor riesgo de padecerla.",
-    options: ["Verdadero", "Falso", "Ni verdadero ni falso", "Ninguna"],
-    correct: 0
-  },
-  {
-    id: 16,
-    text: "16.- Es otro elemento de riesgo pues produce cortisol que eleva los niveles de azúcar.",
-    options: ["Insulina", "Estrés", "Páncreas", "Calorías"],
-    correct: 1
-  },
-  {
-    id: 17,
-    text: "17.- Son enfermedades que no se catalogan como infecciosas.",
-    options: ["Enfermedades no transmisibles", "Enfermedades infecciosas", "Enfermedades genéticas", "Enfermedades fungi"],
-    correct: 0
-  },
-  {
-    id: 18,
-    text: "18.- Es una de las acciones que se recomiendan para evitar enfermedades no transmisibles.",
-    options: ["Comer pizza y pollo frito", "Beber 2 litros de agua diarios", "Evitar realizar ejercicio y actividad física", "Fumar y beber cerveza"],
-    correct: 1
-  },
-  {
-    id: 19,
-    text: "19.- Sucede cuando el cuerpo ya no puede utilizar la insulina que produce, elevando los niveles de glucosa en la sangre.",
-    options: ["Diabetes tipo 1", "Diabetes tipo 2", "Diabetes tipo 3", "Diabetes tipo 4"],
-    correct: 1
-  },
-  {
-    id: 20,
-    text: "20.- Se le conoce como el rechazo de las células que no permiten la asimilación de la glucosa.",
-    options: ["Resistencia a la obesidad", "Resistencia a la insulina", "Resistencia eléctrica", "Resistencia al trabajo"],
-    correct: 1
-  }
+  { id:1,  text:"1.- ¿Son ejemplos de enfermedades no transmisibles?",
+    options:["Diabetes","Viruela","Sarampión","Rubeola"], correct:0 },
+  { id:2,  text:"2.- ¿Es un desequilibrio energético causado por el incremento de las calorías consumidas en contraste con las calorías gastadas?",
+    options:["A) Obesidad","Calorías","Insulina","Genético"], correct:0 },
+  { id:3,  text:"3.- ¿Es el porcentaje de obesidad en niños en edad escolar en México?",
+    options:["35%","45%","25%","75%"], correct:0 },
+  { id:4,  text:"4.- Son las hormonas que se generan por falta de sueño y que provocan que las personas tengan más apetito.",
+    options:["Leptina y grelina","Leptina y grenetina","Cortisol","Vaselina"], correct:0 },
+  { id:5,  text:"5.- El consumo en exceso de estos alimentos provoca enfermedades como la obesidad y diabetes.",
+    options:["Gourmet","Rápida y procesada","Saludable","Vegana"], correct:1 },
+  { id:6,  text:"6.- Es una unidad de medida del contenido de energía en una sustancia.",
+    options:["Energía","Caloría","Mol","Átomo"], correct:1 },
+  { id:7,  text:"7.- ¿Es la cantidad de calorías al día que recomienda la OMS para mantener un control alimenticio?",
+    options:["1000","2000","3000","8000"], correct:1 },
+  { id:8,  text:"8.- Es una enfermedad crónico degenerativa en donde la concentración de glucosa es alta.",
+    options:["Cáncer","Diabetes","Hipertensión","Covid"], correct:1 },
+  { id:9,  text:"9.- Es una hormona producida por el páncreas y sirve para la regulación del azúcar.",
+    options:["Insulina","Leptina","Cortisol","Grenetina"], correct:0 },
+  { id:10, text:"10.- Es el tipo de diabetes cuando el páncreas deja de producir insulina o produce muy poca.",
+    options:["Diabetes tipo 1","Diabetes tipo 2","Diabetes tipo 3","Diabetes tipo 4"], correct:0 },
+  { id:11, text:"11.- El sedentarismo es una de las causas de la obesidad.",
+    options:["Verdadero","Falso","Ninguna","Ni verdadero ni falso"], correct:0 },
+  { id:12, text:"12.- El sobrepeso es sinónimo de obesidad.",
+    options:["Verdadero","Falso","Ni verdadero ni falso","Ninguna"], correct:1 },
+  { id:13, text:"13.- La OMS recomienda 60 minutos diarios de actividad física.",
+    options:["Verdadero","Falso","Ni verdadero ni falso","Ninguna"], correct:0 },
+  { id:14, text:"14.- Los alimentos ricos en calorías no producen obesidad.",
+    options:["Verdadero","Falso","Ni verdadero ni falso","Ninguna"], correct:1 },
+  { id:15, text:"15.- Los hijos de personas con obesidad tienen mayor riesgo de padecerla.",
+    options:["Verdadero","Falso","Ni verdadero ni falso","Ninguna"], correct:0 },
+  { id:16, text:"16.- Es otro elemento de riesgo pues produce cortisol que eleva los niveles de azúcar.",
+    options:["Insulina","Estrés","Páncreas","Calorías"], correct:1 },
+  { id:17, text:"17.- Son enfermedades que no se catalogan como infecciosas.",
+    options:["Enfermedades no transmisibles","Enfermedades infecciosas","Enfermedades genéticas","Enfermedades fungi"], correct:0 },
+  { id:18, text:"18.- Es una de las acciones que se recomiendan para evitar enfermedades no transmisibles.",
+    options:["Comer pizza y pollo frito","Beber 2 litros de agua diarios","Evitar realizar ejercicio y actividad física","Fumar y beber cerveza"], correct:1 },
+  { id:19, text:"19.- Sucede cuando el cuerpo ya no puede utilizar la insulina que produce, elevando los niveles de glucosa en la sangre.",
+    options:["Diabetes tipo 1","Diabetes tipo 2","Diabetes tipo 3","Diabetes tipo 4"], correct:1 },
+  { id:20, text:"20.- Se le conoce como el rechazo de las células que no permiten la asimilación de la glucosa.",
+    options:["Resistencia a la obesidad","Resistencia a la insulina","Resistencia eléctrica","Resistencia al trabajo"], correct:1 }
 ];
 
-// ─── RESPUESTAS SELECCIONADAS ───
+// ── Estado ────────────────────────────────────────────────────────
 const answers = new Array(questions.length).fill(null);
-let startTime = null;
-let submitted = false;
+let startTime  = null;
+let submitted  = false;
 
-// ─── GENERAR PREGUNTAS ───
+// ── Generar preguntas ─────────────────────────────────────────────
 function buildQuestions() {
   const container = document.getElementById('questions-container');
   questions.forEach((q, i) => {
@@ -649,11 +582,10 @@ function buildQuestions() {
       <h3>${q.text} <span class="required-star">*</span></h3>
       <div class="options-list" id="opts-${i}">
         ${q.options.map((opt, j) => `
-          <label class="option-item" id="opt-${i}-${j}" onclick="selectAnswer(${i}, ${j})">
+          <label class="option-item" id="opt-${i}-${j}" onclick="selectAnswer(${i},${j})">
             <input type="radio" name="q${i}" value="${j}" style="pointer-events:none">
             <span class="option-text">${opt}</span>
-          </label>
-        `).join('')}
+          </label>`).join('')}
       </div>
       <div class="inline-error" id="err-q${i}">⚠ Debes seleccionar una respuesta.</div>
     `;
@@ -663,12 +595,10 @@ function buildQuestions() {
 
 function selectAnswer(qIdx, optIdx) {
   answers[qIdx] = optIdx;
-  // visual update
   document.querySelectorAll(`#opts-${qIdx} .option-item`).forEach((el, j) => {
     el.classList.toggle('selected', j === optIdx);
     el.querySelector('input').checked = (j === optIdx);
   });
-  // clear error
   document.getElementById(`card-q${qIdx}`).classList.remove('has-error');
   document.getElementById(`err-q${qIdx}`).classList.remove('visible');
   updateProgress();
@@ -676,71 +606,54 @@ function selectAnswer(qIdx, optIdx) {
 
 function updateProgress() {
   const answered = answers.filter(a => a !== null).length;
-  const total = questions.length;
-  document.getElementById('progress-bar').style.width = `${(answered / total) * 100}%`;
-  document.getElementById('progress-label').textContent = `Pregunta ${answered} de ${total} respondidas`;
+  document.getElementById('progress-bar').style.width = `${(answered / questions.length) * 100}%`;
+  document.getElementById('progress-label').textContent = `Pregunta ${answered} de ${questions.length} respondidas`;
 }
 
-// ─── VALIDACIÓN Y ENVÍO ───
+// ── ENVÍO CON FIREBASE ────────────────────────────────────────────
 async function submitExam() {
   if (submitted) return;
 
   let valid = true;
+  let firstScroll = true;
 
-  // Validar número de lista
-  const lista = document.getElementById('field-lista').value.trim();
-  const listaNum = parseInt(lista, 10);
-  if (!lista || isNaN(listaNum) || listaNum < 1 || listaNum > 50) {
-    document.getElementById('card-lista').classList.add('has-error');
-    document.getElementById('err-lista').classList.add('visible');
-    document.getElementById('card-lista').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  function markError(cardId, errId, scrollTo) {
+    document.getElementById(cardId).classList.add('has-error');
+    document.getElementById(errId).classList.add('visible');
+    if (scrollTo && firstScroll) {
+      document.getElementById(cardId).scrollIntoView({ behavior: 'smooth', block: 'center' });
+      firstScroll = false;
+    }
     valid = false;
-  } else {
-    document.getElementById('card-lista').classList.remove('has-error');
-    document.getElementById('err-lista').classList.remove('visible');
   }
+  function clearError(cardId, errId) {
+    document.getElementById(cardId).classList.remove('has-error');
+    document.getElementById(errId).classList.remove('visible');
+  }
+
+  // Validar lista
+  const listaVal = document.getElementById('field-lista').value.trim();
+  const listaNum = parseInt(listaVal, 10);
+  if (!listaVal || isNaN(listaNum) || listaNum < 1 || listaNum > 50) {
+    markError('card-lista', 'err-lista', true);
+  } else { clearError('card-lista', 'err-lista'); }
 
   // Validar grupo
   const grupo = document.getElementById('field-grupo').value;
-  if (!grupo) {
-    document.getElementById('card-grupo').classList.add('has-error');
-    document.getElementById('err-grupo').classList.add('visible');
-    if (valid) document.getElementById('card-grupo').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    valid = false;
-  } else {
-    document.getElementById('card-grupo').classList.remove('has-error');
-    document.getElementById('err-grupo').classList.remove('visible');
-  }
+  if (!grupo) { markError('card-grupo', 'err-grupo', true); }
+  else { clearError('card-grupo', 'err-grupo'); }
 
   // Validar nombre
   const nombre = document.getElementById('field-nombre').value.trim();
   const nombreRe = /^[a-zA-ZÀ-ÿ\u00f1\u00d1\s]{3,}$/;
-  if (!nombreRe.test(nombre)) {
-    document.getElementById('card-nombre').classList.add('has-error');
-    document.getElementById('err-nombre').classList.add('visible');
-    if (valid) document.getElementById('card-nombre').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    valid = false;
-  } else {
-    document.getElementById('card-nombre').classList.remove('has-error');
-    document.getElementById('err-nombre').classList.remove('visible');
-  }
+  if (!nombreRe.test(nombre)) { markError('card-nombre', 'err-nombre', true); }
+  else { clearError('card-nombre', 'err-nombre'); }
 
   // Validar preguntas
-  let firstErrorQ = null;
   questions.forEach((_, i) => {
-    if (answers[i] === null) {
-      document.getElementById(`card-q${i}`).classList.add('has-error');
-      document.getElementById(`err-q${i}`).classList.add('visible');
-      if (firstErrorQ === null) firstErrorQ = i;
-      valid = false;
-    } else {
-      document.getElementById(`card-q${i}`).classList.remove('has-error');
-      document.getElementById(`err-q${i}`).classList.remove('visible');
-    }
+    if (answers[i] === null) { markError(`card-q${i}`, `err-q${i}`, true); }
+    else { clearError(`card-q${i}`, `err-q${i}`); }
   });
-  if (firstErrorQ !== null && valid === false && lista && grupo && nombre) {
-    document.getElementById(`card-q${firstErrorQ}`).scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
 
   if (!valid) return;
 
@@ -748,47 +661,68 @@ async function submitExam() {
   let correct = 0;
   answers.forEach((ans, i) => { if (ans === questions[i].correct) correct++; });
   const incorrect = questions.length - correct;
-  const score = Math.round((correct / questions.length) * 100);
-  const endTime = new Date();
-  const duration = Math.round((endTime - startTime) / 1000);
+  const score     = Math.round((correct / questions.length) * 100);
+  const endTime   = new Date();
+  const duration  = Math.round((endTime - startTime) / 1000);
 
-  // Deshabilitar botón
+  // Bloquear botón
   submitted = true;
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
   btn.classList.add('loading');
   btn.childNodes[0].textContent = ' Enviando...';
 
-  // Preparar datos
+  // Clave única: grupo_lista  (ej: "3_12") — evita duplicados en Firebase
+  const claveAlumno = `G${grupo}_L${String(listaNum).padStart(2,'0')}`;
+
   const payload = {
-    nombre: nombre.toUpperCase(),
-    numeroDeLista: listaNum,
+    nombre:           nombre.toUpperCase(),
+    numeroDeLista:    listaNum,
     grupo,
-    horaInicio: startTime.toLocaleTimeString('es-MX'),
-    horaTermino: endTime.toLocaleTimeString('es-MX'),
+    fechaHoraRegistro: new Date().toLocaleString('es-MX'),
+    horaInicio:       startTime.toLocaleTimeString('es-MX'),
+    horaTermino:      endTime.toLocaleTimeString('es-MX'),
     duracionSegundos: duration,
-    calificacion: score,
-    correctas: correct,
-    incorrectas: incorrect,
-    respuestas: answers.join(',')
+    calificacion:     score,
+    correctas:        correct,
+    incorrectas:      incorrect,
+    respuestas:       answers.join(',')
   };
 
-  // Guardar localmente para prevenir duplicados
-  localStorage.setItem('examSubmitted_bio2p', JSON.stringify({ lista: listaNum, grupo, nombre, ts: Date.now() }));
-
   try {
-    // Apps Script con no-cors requiere GET + parámetros en URL
-    // (POST con no-cors no envía el body correctamente desde el navegador)
-    const params = new URLSearchParams(Object.entries(payload).map(([k, v]) => [k, String(v)]));
-    await fetch(`${SHEET_URL}?${params.toString()}`, {
-      method: 'GET',
-      mode: 'no-cors'
-    });
-  } catch (e) {
-    console.warn('Error al enviar a Google Sheets:', e);
-  }
+    // Verificar si ya existe este alumno en Firebase antes de guardar
+    const ref = db.ref(`examenes/biologia_2p/${claveAlumno}`);
+    const snapshot = await ref.once('value');
 
-  showThanks();
+    if (snapshot.exists()) {
+      // Ya contestó — mostrar pantalla de cerrado personalizada
+      submitted = false;
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      btn.childNodes[0].textContent = 'Enviar examen';
+
+      document.getElementById('screen-closed').querySelector('h2').textContent = '🚫 Ya contestaste este examen';
+      document.getElementById('screen-closed').querySelector('p').textContent =
+        `Ya existe un registro para el alumno de lista #${listaNum} del grupo ${grupo}. No es posible contestar dos veces.`;
+      showScreen('closed');
+      return;
+    }
+
+    // Guardar en Firebase con la clave única
+    await ref.set(payload);
+
+    // También guardar en localStorage como respaldo local
+    localStorage.setItem('examSubmitted_bio2p', JSON.stringify({ lista: listaNum, grupo, nombre, ts: Date.now() }));
+
+    showThanks();
+
+  } catch (err) {
+    console.error('Error Firebase:', err);
+    // Si falla Firebase, igual mostramos gracias (los datos están en localStorage)
+    // para no dejar al alumno bloqueado
+    localStorage.setItem('examSubmitted_bio2p', JSON.stringify({ lista: listaNum, grupo, nombre, ts: Date.now() }));
+    showThanks();
+  }
 }
 
 function showThanks() {
@@ -800,29 +734,28 @@ function showThanks() {
 
 function closePage() {
   window.close();
-  // fallback si window.close() no funciona
   document.body.innerHTML = '<div style="text-align:center;padding:60px;font-family:sans-serif;color:#0d3b2e"><h2>✅ Puedes cerrar esta pestaña.</h2></div>';
 }
 
-// ─── CONFETTI ───
+// ── Confetti ──────────────────────────────────────────────────────
 function launchConfetti() {
   const colors = ['#27ae72','#f4c542','#1a6b4a','#0d3b2e','#a8e6cf'];
   const wrap = document.getElementById('confetti-wrap');
   for (let i = 0; i < 80; i++) {
     const p = document.createElement('div');
     p.className = 'confetti-piece';
-    p.style.left = Math.random() * 100 + 'vw';
+    p.style.left     = Math.random() * 100 + 'vw';
     p.style.background = colors[Math.floor(Math.random() * colors.length)];
-    p.style.width = (6 + Math.random() * 8) + 'px';
-    p.style.height = (6 + Math.random() * 8) + 'px';
+    p.style.width    = (6 + Math.random() * 8) + 'px';
+    p.style.height   = (6 + Math.random() * 8) + 'px';
     p.style.animationDuration = (1.5 + Math.random() * 3) + 's';
-    p.style.animationDelay = Math.random() * 1.5 + 's';
+    p.style.animationDelay   = Math.random() * 1.5 + 's';
     p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
     wrap.appendChild(p);
   }
 }
 
-// ─── CONTROL DE TIEMPO ───
+// ── Control de tiempo ─────────────────────────────────────────────
 function checkTime() {
   const now = new Date();
   if (now < EXAM_START) return 'wait';
@@ -833,27 +766,22 @@ function checkTime() {
 function fmtDate(d) {
   const dias  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
   const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  const hh = String(d.getHours()).padStart(2,'0');
-  const mm = String(d.getMinutes()).padStart(2,'0');
-  return `${dias[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]} ${d.getFullYear()} a las ${hh}:${mm} hrs`;
+  return `${dias[d.getDay()]} ${d.getDate()} de ${meses[d.getMonth()]} ${d.getFullYear()} a las ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} hrs`;
 }
 
 function updateCountdown() {
   const now  = new Date();
   const diff = Math.max(0, EXAM_START - now);
-
   const totalSecs = Math.floor(diff / 1000);
   const days = Math.floor(totalSecs / 86400);
   const h    = Math.floor((totalSecs % 86400) / 3600);
   const m    = Math.floor((totalSecs % 3600)  / 60);
   const s    = totalSecs % 60;
 
-  // Mostrar días en el contador si faltan más de 24h
-  const cdH = document.getElementById('cd-h');
+  const cdH    = document.getElementById('cd-h');
   const cdHBox = cdH.closest('.cd-box');
 
   if (days > 0) {
-    // Agregar caja de días si no existe
     if (!document.getElementById('cd-d')) {
       const dayBox = document.createElement('div');
       dayBox.className = 'cd-box';
@@ -866,10 +794,9 @@ function updateCountdown() {
     if (dayBoxEl) dayBoxEl.closest('.cd-box').remove();
   }
 
-  document.getElementById('cd-h').textContent = String(h).padStart(2,'0');
+  cdH.textContent = String(h).padStart(2,'0');
   document.getElementById('cd-m').textContent = String(m).padStart(2,'0');
   document.getElementById('cd-s').textContent = String(s).padStart(2,'0');
-
   document.getElementById('wait-window-text').innerHTML =
     `Disponible del <strong>${fmtDate(EXAM_START)}</strong><br>hasta el <strong>${fmtDate(EXAM_END)}</strong>.`;
 }
@@ -887,10 +814,9 @@ function tick() {
   } else if (state === 'closed') {
     showScreen('closed');
   } else {
-    // Ya está abierto — solo activar una vez
     const wasOpen = document.getElementById('screen-exam').classList.contains('active');
     if (!wasOpen) {
-      // Verificar si ya contestó
+      // Revisar localStorage primero (respaldo rápido)
       const prev = localStorage.getItem('examSubmitted_bio2p');
       if (prev) {
         try {
@@ -898,7 +824,7 @@ function tick() {
           if (data.lista) {
             document.getElementById('screen-closed').querySelector('h2').textContent = '🚫 Ya contestaste este examen';
             document.getElementById('screen-closed').querySelector('p').textContent =
-              `Registramos una respuesta del alumno ${data.nombre || ''} (lista #${data.lista}). No es posible contestar dos veces.`;
+              `Registramos una respuesta del alumno ${data.nombre || ''} (lista #${data.lista}). No es posible contestar dos veces desde este dispositivo.`;
             showScreen('closed');
             return;
           }
@@ -910,7 +836,7 @@ function tick() {
   }
 }
 
-// ─── INIT ───
+// ── Init ──────────────────────────────────────────────────────────
 buildQuestions();
 tick();
 setInterval(tick, 1000);
